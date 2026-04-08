@@ -9,6 +9,40 @@
 #include <sstream>
 using namespace std;
 
+#define JGLINE 500.f
+#define X = 600.f
+#define Y 800.f
+class Effect {
+private:
+    sf::Sprite sprite;
+    float lifetime;      // 이펙트가 유지될 시간 (초)
+    float maxLifetime;
+
+public:
+    // 텍스처는 외부에서 로드된 것을 참조(&)로 받습니다.
+    Effect(const sf::Texture& texture, int lane): lifetime(20.f), maxLifetime(40.f), sprite(texture) {
+        sprite.setPosition({100.f*static_cast<float>(lane)+165.f, JGLINE-95.f}); // 위치 설정
+        sprite.setScale({0.7f, 0.7f});     // 크기 조절 (선택)
+    }
+
+    // 매 프레임마다 업데이트 (투명도 조절 등)
+    void update(float dt) {
+        lifetime -= dt;
+        // 시간이 지날수록 투명해지는 효과
+        float alpha = (lifetime / maxLifetime) * 255;
+        sprite.setColor(sf::Color(255, 255, 255, (unsigned char)alpha));
+    }
+
+    void draw(sf::RenderWindow& window) {
+        window.draw(sprite);
+    }
+
+    bool isFinished() const { return lifetime <= 0.f; }
+};
+class lineEffect : public Effect{
+    bool isKeyPressed;
+
+};
 class Note { //입력 받은 노트를 화면에 띄어주는역할
     public:
     float key_time;
@@ -27,7 +61,7 @@ class Note { //입력 받은 노트를 화면에 띄어주는역할
 
 };
 
-enum class JudgeResult { Perfect, Good, None, Miss };
+enum class JudgeResult { Perfect, Good, None, Miss};
 class Judgment {// 판정 역할
     int score=0;
     int combo=0;
@@ -38,13 +72,18 @@ class Judgment {// 판정 역할
             score += 100; combo++;
             return JudgeResult::Perfect;
         }
-        else if (diff < 0.2) {
+        else if (diff < 0.1) {
             score += 50; combo++;
             return JudgeResult::Good;
         }
+        else if (diff < 0.2) {
+            combo++;
+            return JudgeResult::Miss;
+        }
         return JudgeResult::None;
+
     }
-    void addMiss() {
+    void BREAK() {
         combo = 0;
     }
     int getScore() const { return score; }
@@ -74,7 +113,7 @@ vector<Note> loadNotes(const string&filename) { //텍스트 파일을 입력 받
     return notes;
 }
 int main() {
-
+    // 키 사운드 불러오기
     sf::SoundBuffer buffer;
     if (!buffer.loadFromFile("/Users/kimht4040/Desktop/code/miniproject/project/output.wav")) {
         std::cout << "Could not load sound." << std::endl;
@@ -82,13 +121,17 @@ int main() {
     }
     sf::Sound sound(buffer);
 
-
-
+    // 키 이펙트 불러오기
+    sf::Texture texture;
+    if (!texture.loadFromFile("/Users/kimht4040/Desktop/code/miniproject/project/effect.png")) {
+        return -1; // 이미지 로드 실패 시 종료
+    }
+    vector<Effect> effects;
 
 
 
     // 인식할 키 입력 백터
-    std::vector<sf::Keyboard::Key> myKeys = {
+    vector<sf::Keyboard::Key> myKeys = {
         sf::Keyboard::Key::S, sf::Keyboard::Key::D, sf::Keyboard::Key::K, sf::Keyboard::Key::L
     };
 
@@ -98,7 +141,7 @@ int main() {
     Judgment judgment; //판정 클래스
 
     // 4개의 건반 라인 구분선 그리기
-    std::vector<sf::RectangleShape> lines;
+    vector<sf::RectangleShape> lines;
     for (int i = 1; i <= 5; ++i) {
         sf::RectangleShape line(sf::Vector2f({2.f, 600.f})); // 두께 2, 길이 600
         line.setFillColor(sf::Color(100, 100, 100));
@@ -108,7 +151,7 @@ int main() {
     // 하단 판정선 그리기
     sf::RectangleShape judgmentLine(sf::Vector2f({400.f, 5.f})); // 너비 400, 두께 5
     judgmentLine.setFillColor(sf::Color::Blue); //setFillColor : 색 뭘로 채울지 결정
-    judgmentLine.setPosition(sf::Vector2f({200.f, 500.f}));      // X: 200, Y: 500 위치에 배치
+    judgmentLine.setPosition(sf::Vector2f({200.f, JGLINE}));      // X: 200, Y: 500 위치에 배치
 
     // 음악 재생 부분
     sf::Music music;
@@ -120,8 +163,8 @@ int main() {
     music.setVolume(50.f);
 
      // 채보 불러오기
-    std::vector<Note> gameNotes = loadNotes("/Users/kimht4040/Desktop/code/miniproject/project/cmake-build-debug/map.txt");
-    std::vector<Note> laneNotes[4];
+    vector<Note> gameNotes = loadNotes("/Users/kimht4040/Desktop/code/miniproject/project/map.txt");
+    vector<Note> laneNotes[4];
     for (auto& n : gameNotes) {
         laneNotes[n.lane].push_back(n);
     }
@@ -143,11 +186,12 @@ int main() {
     judgeText.setCharacterSize(50);
     judgeText.setFillColor(sf::Color::White);
     judgeText.setPosition({400.f, 250.f});
+    // 점수 텍스트
+    sf::Text scoreText(font);
+    scoreText.setCharacterSize(50);
+    scoreText.setFillColor(sf::Color::White);
+    scoreText.setPosition({400.f, 550.f});
 
-
-    // 텍스트 잠시 후 사라지게
-    sf::Clock uiClock;
-    float showTime = 0.f; // 텍스트를 보여줄 남은 시간
 
 
     // 메인 루프
@@ -157,7 +201,7 @@ int main() {
         float currentTime = music.getPlayingOffset().asSeconds();// 현재 재생시간을 시간의 기준점으로 설정함
 
         comboText.setString(std::to_string(judgment.getCombo()));
-
+        scoreText.setString(std::to_string(judgment.getScore()));
 
         // 이벤트 처리
         while (const std::optional event = window.pollEvent()) {
@@ -177,14 +221,19 @@ int main() {
                             // 판정이 발생했다면 노트 제거
                             if (res != JudgeResult::None) {
                                 laneNotes[i].erase(laneNotes[i].begin());
+                                effects.emplace_back(texture, i);
                             }
                             if (res == JudgeResult::Perfect) {
                                 judgeText.setString("PERFECT");
                                 judgeText.setFillColor(sf::Color::Cyan);
-                                showTime = 0.5f; // 0.5초 동안 표시
-                            } else if (res == JudgeResult::Good) {
+                            }
+                            else if (res == JudgeResult::Good) {
                                 judgeText.setString("GOOD");
                                 judgeText.setFillColor(sf::Color::Green);
+                            }
+                            else if (res == JudgeResult::Miss) {
+                                judgeText.setString("MISS");
+                                judgeText.setFillColor(sf::Color::Magenta);
                             }
                         }
                     }
@@ -193,6 +242,14 @@ int main() {
 
         }
 
+        for (auto it = effects.begin(); it != effects.end(); ) {
+            it->update(1);
+            if (it->isFinished()) {
+                it = effects.erase(it); // 벡터에서 제거
+            } else {
+                ++it;
+            }
+        }
 
 
         window.clear(sf::Color::Black);
@@ -203,12 +260,14 @@ int main() {
         }
         for (int i = 0; i < 4; ++i) {
             for (auto it = laneNotes[i].begin(); it != laneNotes[i].end(); ) {
-                it->update(currentTime, 500.f, 500.f); // 속도 400으로 조절
+                it->update(currentTime, 500.f, JGLINE); // 속도 400으로 조절
 
                 // 판정선을 지나친 노트 처리 (Miss)
-                if (currentTime > it->key_time + 0.15f) {
-                    judgment.addMiss();
+                if (currentTime > it->key_time + 0.2f) {
+                    judgment.BREAK();
                     it = laneNotes[i].erase(it);
+                    judgeText.setString("BREAK");
+                    judgeText.setFillColor(sf::Color::Red);
                 } else {
                     // 화면에 보일 때만 그리기
                     if (it->shape.getPosition().y > -50.f && it->shape.getPosition().y < 600.f) {
@@ -224,10 +283,27 @@ int main() {
             judgeText.setOrigin(jRect.getCenter());
             window.draw(judgeText);
         }
-        if (judgment.getCombo() > 0) { // 콤보가 1 이상일 때만 표시
-            window.draw(comboText);
+        if (comboText.getString() != "") {
+            // 중앙 정렬 (글자 바뀔 때마다 위치 고정)
+            sf::FloatRect CRect = comboText.getLocalBounds();
+            comboText.setOrigin(CRect.getCenter());
+            if (judgment.getCombo() > 0) { // 콤보가 1 이상일 때만 표시
+                window.draw(comboText);
+            }
+
         }
-        window.draw(judgeText);
+
+        for (auto& effect : effects) {
+            effect.draw(window);
+        }
+        if (scoreText.getString() != "") {
+            // 중앙 정렬 (글자 바뀔 때마다 위치 고정)
+            sf::FloatRect CRect = scoreText.getLocalBounds();
+            scoreText.setOrigin(CRect.getCenter());
+            window.draw(scoreText);
+
+        }
+
         window.draw(judgmentLine);
         window.display();
     }

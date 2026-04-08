@@ -11,6 +11,14 @@ struct NoteData {
 };
 
 int main() {
+
+    sf::SoundBuffer buffer;
+    if (!buffer.loadFromFile("/Users/kimht4040/Desktop/code/miniproject/project/output.wav")) {
+        std::cout << "Could not load sound." << std::endl;
+        return -1;
+    }
+    sf::Sound sound(buffer);
+
     sf::RenderWindow window(sf::VideoMode({400, 300}), "Chart Recorder");
     sf::Music music;
 
@@ -37,7 +45,7 @@ int main() {
             }
 
             if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
-
+                sound.play();
                 // 스페이스바 처리 로직 변경
                 if (keyPressed->code == sf::Keyboard::Key::Space) {
                     if (!isStarted) {
@@ -76,7 +84,7 @@ int main() {
 
     // [중요] while 루프가 끝나면(창이 닫히면) 실행되는 구간입니다.
     if (!recordedNotes.empty()) {
-        std::ofstream outFile("map.txt");
+        std::ofstream outFile("/Users/kimht4040/Desktop/code/miniproject/project/map.txt");
         for (const auto& note : recordedNotes) {
             outFile << note.time << "," << note.lane << "\n";
         }
