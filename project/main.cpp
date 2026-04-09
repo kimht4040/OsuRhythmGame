@@ -66,7 +66,7 @@ class Note { //입력 받은 노트를 화면에 띄어주는역할
     float key_time;
     float end_time;
     bool islong;
-    bool isheadhit;
+    bool isHolding = false;
     int lane;
     sf::RectangleShape shape;
     Note(float key_time, int lane) : key_time(key_time), lane(lane) {
@@ -158,9 +158,10 @@ int main() {
     vector<sf::Keyboard::Key> myKeys = {
         sf::Keyboard::Key::S, sf::Keyboard::Key::D, sf::Keyboard::Key::K, sf::Keyboard::Key::L
     };
-
+    // 윈도우 정의
     sf::RenderWindow window(sf::VideoMode({800, 600}), "Rhythm Cpp");
     window.setFramerateLimit(60);
+
 
     Judgment judgment; //판정 클래스
 
@@ -216,9 +217,8 @@ int main() {
     scoreText.setFillColor(sf::Color::White);
     scoreText.setPosition({400.f, 550.f});
 
+    float scrollSpeed = 0.5f;
 #pragma endregion
-    bool isPressed[4] = { false, false, false, false };
-
 
     // 메인 루프
     while (window.isOpen()) {
@@ -252,12 +252,10 @@ int main() {
                             if (res == JudgeResult::Perfect) {
                                 judgeText.setString("PERFECT");
                                 judgeText.setFillColor(sf::Color::Cyan);
-                            }
-                            else if (res == JudgeResult::Good) {
+                            } else if (res == JudgeResult::Good) {
                                 judgeText.setString("GOOD");
                                 judgeText.setFillColor(sf::Color::Green);
-                            }
-                            else if (res == JudgeResult::Miss) {
+                            } else if (res == JudgeResult::Miss) {
                                 judgeText.setString("MISS");
                                 judgeText.setFillColor(sf::Color::Magenta);
                             }
@@ -269,7 +267,7 @@ int main() {
         }
 
         for (auto it = effects.begin(); it != effects.end(); ) {
-            it->update(1);
+            it->update(0.5f);
             if (it->isFinished()) {
                 it = effects.erase(it); // 벡터에서 제거
             } else {
@@ -288,7 +286,7 @@ int main() {
             for (auto it = laneNotes[i].begin(); it != laneNotes[i].end(); ) {
                 it->update(currentTime, 500.f, JGLINE); // 속도 400으로 조절
 
-                // 판정선을 지나친 노트 처리 (Miss)
+                // 판정선을 지나친 노트 처리
                 if (currentTime > it->key_time + 0.2f) {
                     judgment.BREAK();
                     it = laneNotes[i].erase(it);
