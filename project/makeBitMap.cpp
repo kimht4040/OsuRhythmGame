@@ -13,7 +13,7 @@ struct NoteData {
 int main() {
 
     sf::SoundBuffer buffer;
-    if (!buffer.loadFromFile("/Users/kimht4040/Desktop/code/miniproject/project/output.wav")) {
+    if (!buffer.loadFromFile("output.wav")) {
         std::cout << "Could not load sound." << std::endl;
         return -1;
     }
@@ -23,7 +23,7 @@ int main() {
     sf::Music music;
 
     // 경로가 길어 가독성을 위해 별도 변수로 뺍니다.
-    std::string musicPath = "/Users/kimht4040/Desktop/code/miniproject/project/music.mp3";
+    std::string musicPath = "music.mp3";
     if (!music.openFromFile(musicPath)) {
         std::cout << "음악 파일을 찾을 수 없습니다!" << std::endl;
         return -1;
@@ -82,9 +82,8 @@ int main() {
         }
     }
 
-    // [중요] while 루프가 끝나면(창이 닫히면) 실행되는 구간입니다.
     if (!recordedNotes.empty()) {
-        std::ofstream outFile("/Users/kimht4040/Desktop/code/miniproject/project/map.txt");
+        std::ofstream outFile("map.txt");
         for (const auto& note : recordedNotes) {
             outFile << note.time << "," << note.lane << "\n";
         }

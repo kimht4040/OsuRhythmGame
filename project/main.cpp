@@ -17,10 +17,10 @@ private:
     sf::Sprite sprite;
     float lifetime;      // 이펙트가 유지될 시간 (초)
     float maxLifetime;
-
+    int lane;
 public:
     // 텍스처는 외부에서 로드된 것을 참조(&)로 받습니다.
-    Effect(const sf::Texture& texture, int lane): lifetime(20.f), maxLifetime(40.f), sprite(texture) {
+    Effect(const sf::Texture& texture, int lane): lifetime(20.f), maxLifetime(40.f), sprite(texture), lane(lane) {
         sprite.setPosition({100.f*static_cast<float>(lane)+165.f, JGLINE-95.f}); // 위치 설정
         sprite.setScale({0.7f, 0.7f});     // 크기 조절 (선택)
     }
@@ -39,13 +39,34 @@ public:
 
     bool isFinished() const { return lifetime <= 0.f; }
 };
-class lineEffect : public Effect{
+class lineEffect{
+    sf::RectangleShape rect;
     bool isKeyPressed;
+public:
+
+    lineEffect(int lane):isKeyPressed(true) {
+        rect.setSize({98.f, 600.f});
+        rect.setPosition({201.f + lane * 100.f, 0.f});
+        rect.setFillColor(sf::Color(0, 255, 255, 100));
+    }
+    void stop() {
+        isKeyPressed = false;
+    }
+    void draw(sf::RenderWindow& window) {
+        window.draw(rect);
+    }
+    bool ispressed() const {
+        return isKeyPressed;
+    }
+
 
 };
 class Note { //입력 받은 노트를 화면에 띄어주는역할
     public:
     float key_time;
+    float end_time;
+    bool islong;
+    bool isheadhit;
     int lane;
     sf::RectangleShape shape;
     Note(float key_time, int lane) : key_time(key_time), lane(lane) {
@@ -112,10 +133,13 @@ vector<Note> loadNotes(const string&filename) { //텍스트 파일을 입력 받
     file.close();
     return notes;
 }
+
 int main() {
+#pragma region 임시 코드 블록
+
     // 키 사운드 불러오기
     sf::SoundBuffer buffer;
-    if (!buffer.loadFromFile("/Users/kimht4040/Desktop/code/miniproject/project/output.wav")) {
+    if (!buffer.loadFromFile("output.wav")) {
         std::cout << "Could not load sound." << std::endl;
         return -1;
     }
@@ -123,7 +147,7 @@ int main() {
 
     // 키 이펙트 불러오기
     sf::Texture texture;
-    if (!texture.loadFromFile("/Users/kimht4040/Desktop/code/miniproject/project/effect.png")) {
+    if (!texture.loadFromFile("effect.png")) {
         return -1; // 이미지 로드 실패 시 종료
     }
     vector<Effect> effects;
@@ -155,7 +179,7 @@ int main() {
 
     // 음악 재생 부분
     sf::Music music;
-    if (!music.openFromFile("/Users/kimht4040/Desktop/code/miniproject/project/music.mp3")) {
+    if (!music.openFromFile("music.mp3")) {
         cout << "Could not load music." << endl;
         return 1;
     }
@@ -163,7 +187,7 @@ int main() {
     music.setVolume(50.f);
 
      // 채보 불러오기
-    vector<Note> gameNotes = loadNotes("/Users/kimht4040/Desktop/code/miniproject/project/map.txt");
+    vector<Note> gameNotes = loadNotes("map.txt");
     vector<Note> laneNotes[4];
     for (auto& n : gameNotes) {
         laneNotes[n.lane].push_back(n);
@@ -192,6 +216,8 @@ int main() {
     scoreText.setFillColor(sf::Color::White);
     scoreText.setPosition({400.f, 550.f});
 
+#pragma endregion
+    bool isPressed[4] = { false, false, false, false };
 
 
     // 메인 루프

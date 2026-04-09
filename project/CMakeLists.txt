@@ -17,3 +17,4 @@ add_executable(bitmap_app makeBitMap.cpp)
 # 라이브러리 연결
 target_link_libraries(project sfml-graphics sfml-window sfml-system sfml-audio)
 target_link_libraries(bitmap_app sfml-graphics sfml-window sfml-system sfml-audio)
+
