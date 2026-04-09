@@ -19,7 +19,7 @@ link_directories(${SFML_LIBRARY_DIR} ${BASS_LIBRARY_DIR})
 
 add_executable(project main.cpp)
 add_executable(bitmap_app makeBitMap.cpp)
-add_executable(osuProject osumain.cpp)
+add_executable(osuProject osumain.cpp OsuElements.cpp)
 
 # 라이브러리 연결
 target_link_libraries(project sfml-graphics sfml-window sfml-system sfml-audio)

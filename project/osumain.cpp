@@ -3,136 +3,12 @@
 #include <optional>
 #include <vector>
 #include <SFML/Audio.hpp>
-#include <cmath>
 #include <string>
-#include <fstream>
-#include <sstream>
 #include <deque>
 #include "bass.h"
-#define JGLINE 500.f
-#define GET_LANE(x, keyCount) ((x) * (keyCount) / 512)
-#define NOTE_SPEED 0.5f
-
-
+#include "OsuElements.h"
 
 using namespace std;
-class Effect {
-private:
-    sf::Sprite sprite;
-    float lifetime;
-    float maxLifetime;
-    int lane;
-public:
-    Effect(const sf::Texture& texture, int lane): lifetime(20.f), maxLifetime(40.f), sprite(texture), lane(lane) {
-        sprite.setPosition({100.f*static_cast<float>(lane)+165.f, JGLINE-95.f});
-        sprite.setScale({0.7f, 0.7f});
-    }
-
-    void update(float dt) {
-        lifetime -= dt;
-        float alpha = (lifetime / maxLifetime) * 255;
-        sprite.setColor(sf::Color(255, 255, 255, (unsigned char)alpha));
-    }
-
-    void draw(sf::RenderWindow& window) {
-        window.draw(sprite);
-    }
-
-    bool isFinished() const { return lifetime <= 0.f; }
-};
-
-class Note {
-public:
-    int lane;
-    long long startTime;
-    long long endTime;
-    bool isLongNote;
-    bool isHolding = false;
-    bool isProcessed=false;
-    sf::RectangleShape shape;
-
-    Note(long long startTime=0, long long endTime=0, bool isLongNote=0, int lane=-1)
-        : startTime(startTime), endTime(endTime), isLongNote(isLongNote), lane(lane) {
-        shape.setFillColor(sf::Color::Yellow);
-        shape.setPosition({202.f + static_cast<float>(lane) * 100.f, 0.f});
-        if (isLongNote) {
-            // [FIX 4] 롱노트 길이를 NOTE_SPEED 기반으로 통일
-            shape.setSize(sf::Vector2f({98.f, static_cast<float>(endTime - startTime) * NOTE_SPEED}));
-        }
-        else {
-            shape.setSize(sf::Vector2f({98.f, 10.f}));
-        }
-    }
-
-    void update(long long currentTime, float speed, float hitLineY) {
-        auto timeGap = static_cast<float>(startTime - currentTime);
-        float y = hitLineY - (timeGap * speed);
-        shape.setPosition({shape.getPosition().x, y});
-    }
-};
-
-enum class JudgeResult { Perfect, Good, None, Miss};
-class Judgment {
-    int score = 0;
-    int combo = 0;
-public:
-    JudgeResult judge(long long key_time, long long map_time) {
-        long long diff = std::abs(key_time - map_time);
-        if (diff < 100) { score += 100; combo++; return JudgeResult::Perfect; }
-        else if (diff < 200) { score += 50; combo++; return JudgeResult::Good; }
-        // [FIX 1] Miss 판정 시 combo++ 제거 → BREAK() 호출로 교체
-        else if (diff < 300) { BREAK(); return JudgeResult::Miss; }
-        return JudgeResult::None;
-    }
-    void BREAK() { combo = 0; }
-    int getScore() const { return score; }
-    int getCombo() const { return combo; }
-};
-
-
-std::deque<Note> parseOsuMania(std::string filePath) {
-    std::deque<Note> notes;
-    std::string line;
-    bool isHitObjectSection = false;
-    fstream file;
-    file.open(filePath, ios::in);
-    if (!file.is_open()) {
-        std::cerr << "파일을 열 수 없습니다: " << filePath << std::endl;
-        return notes;
-    }
-    while (getline(file, line)) {
-        if (line.find("[HitObjects]") != string::npos) {
-            isHitObjectSection = true;
-            continue;
-        }
-        if (isHitObjectSection && !line.empty()) {
-            stringstream ss(line);
-            string s;
-            vector<string> tokens;
-            while (getline(ss, s, ',')) {
-                tokens.push_back(s);
-            }
-            if (tokens.size() < 5) continue;
-
-            int x = stoi(tokens[0]);
-            long long st = stol(tokens[2]);
-            bool isLong = (stoi(tokens[3]) & 128) != 0;
-            long long et = 0;
-            if (isLong) {
-                size_t colonPos = tokens[5].find(':');
-                if (colonPos != std::string::npos) {
-                    et = std::stol(tokens[5].substr(0, colonPos));
-                }
-            }
-            int laneIdx = GET_LANE(x, 4);
-
-            Note note(st, et, isLong, laneIdx);
-            notes.push_back(note);
-        }
-    }
-    file.close();
-    return notes;
-}
 
 int main() {
 
@@ -166,6 +42,15 @@ int main() {
     vector<sf::Keyboard::Key> myKeys = {
         sf::Keyboard::Key::S, sf::Keyboard::Key::D, sf::Keyboard::Key::K, sf::Keyboard::Key::L
     };
+
+    vector<sf::RectangleShape> laneEffects;
+    for (int i = 0; i < 4; ++i) {
+        sf::RectangleShape laneEffect(sf::Vector2f({98.f, 5.f}));
+        laneEffect.setFillColor(sf::Color(255, 255, 255, 50));
+        laneEffect.setPosition(sf::Vector2f({200.f + i * 100.f, JGLINE}));
+    }
+
+
 
     vector<sf::RectangleShape> lines;
     for (int i = 1; i <= 5; ++i) {
@@ -206,6 +91,7 @@ int main() {
     }
     vector<Effect> effects;
 
+
     deque<Note> laneNotes[4];
     for (auto& n : notes) {
         laneNotes[n.lane].push_back(n);
@@ -226,7 +112,7 @@ int main() {
 
                 long long deadline = (front.isLongNote && front.isHolding) ? front.endTime : front.startTime;
 
-                if (currentMusicTime - deadline > 300) {
+                if (currentMusicTime - deadline > 150) {
                     judgment.BREAK();
                     judgeText.setString("MISS");
                     judgeText.setFillColor(sf::Color::Magenta);
@@ -247,26 +133,35 @@ int main() {
                         HCHANNEL hitChannel = BASS_SampleGetChannel(hitSample, FALSE);
                         BASS_ChannelPlay(hitChannel, FALSE);
                         if (!laneNotes[i].empty()) {
-                            Note& target = laneNotes[i].front();
-                            JudgeResult res = judgment.judge(currentMusicTime, target.startTime);
-                            if (res != JudgeResult::None) {
-                                if (target.isLongNote) {
-                                    target.isHolding = true;
-                                }
-                                else {
+                            for (auto it = laneNotes[i].begin(); it != laneNotes[i].end(); ++it) {
+                                Note& target = *it;
+                                if (target.isHolding) continue;
+
+                                JudgeResult res = judgment.judge(currentMusicTime, target.startTime);
+                                if (res != JudgeResult::None) {
                                     effects.emplace_back(texture, i);
-                                    laneNotes[i].pop_front();
+
+                                    if (res == JudgeResult::Perfect) {
+                                        judgeText.setString("PERFECT");
+                                        judgeText.setFillColor(sf::Color::Cyan);
+                                    } else if (res == JudgeResult::Good) {
+                                        judgeText.setString("GOOD");
+                                        judgeText.setFillColor(sf::Color::Green);
+                                    } else if (res == JudgeResult::Miss) {
+                                        judgeText.setString("MISS");
+                                        judgeText.setFillColor(sf::Color::Magenta);
+                                    }
+
+                                    if (res == JudgeResult::Miss) {
+                                        laneNotes[i].erase(it);
+                                    } else if (target.isLongNote) {
+                                        target.isHolding = true;
+                                    } else {
+                                        laneNotes[i].erase(it);
+                                    }
+
+                                    break;
                                 }
-                            }
-                            if (res == JudgeResult::Perfect) {
-                                judgeText.setString("PERFECT");
-                                judgeText.setFillColor(sf::Color::Cyan);
-                            } else if (res == JudgeResult::Good) {
-                                judgeText.setString("GOOD");
-                                judgeText.setFillColor(sf::Color::Green);
-                            } else if (res == JudgeResult::Miss) {
-                                judgeText.setString("MISS");
-                                judgeText.setFillColor(sf::Color::Magenta);
                             }
                         }
                     }
@@ -281,20 +176,25 @@ int main() {
                                 HCHANNEL hitChannel = BASS_SampleGetChannel(hitSample, FALSE);
                                 BASS_ChannelPlay(hitChannel, FALSE);
                                 JudgeResult res = judgment.judge(currentMusicTime, target.endTime);
-                                if (res != JudgeResult::None) {
-                                    laneNotes[i].pop_front();
-                                    effects.emplace_back(texture, i);
-                                }
-                                if (res == JudgeResult::Perfect) {
-                                    judgeText.setString("PERFECT");
-                                    judgeText.setFillColor(sf::Color::Cyan);
-                                } else if (res == JudgeResult::Good) {
-                                    judgeText.setString("GOOD");
-                                    judgeText.setFillColor(sf::Color::Green);
-                                } else if (res == JudgeResult::Miss) {
+                                
+                                if (res == JudgeResult::None) {
+                                    judgment.BREAK();
                                     judgeText.setString("MISS");
                                     judgeText.setFillColor(sf::Color::Magenta);
+                                } else {
+                                    effects.emplace_back(texture, i);
+                                    if (res == JudgeResult::Perfect) {
+                                        judgeText.setString("PERFECT");
+                                        judgeText.setFillColor(sf::Color::Cyan);
+                                    } else if (res == JudgeResult::Good) {
+                                        judgeText.setString("GOOD");
+                                        judgeText.setFillColor(sf::Color::Green);
+                                    } else if (res == JudgeResult::Miss) {
+                                        judgeText.setString("MISS");
+                                        judgeText.setFillColor(sf::Color::Magenta);
+                                    }
                                 }
+                                laneNotes[i].pop_front();
                             }
                         }
                     }
@@ -327,7 +227,8 @@ int main() {
                 long long timeDiff = note.startTime - currentMusicTime;
                 note.update(currentMusicTime, NOTE_SPEED, JGLINE);
                 if (note.isLongNote) {
-                    if (timeDiff <= 6000 && timeDiff > -150) {
+                    long long endDiff = note.endTime - currentMusicTime;
+                    if (timeDiff <= 6000 && endDiff > -150) {
                         window.draw(note.shape);
                     }
                 } else {
