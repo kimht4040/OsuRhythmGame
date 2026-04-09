@@ -29,32 +29,51 @@ bool Effect::isFinished() const { return lifetime <= 0.f; }
 
 Note::Note(long long startTime, long long endTime, bool isLongNote, int lane)
     : startTime(startTime), endTime(endTime), isLongNote(isLongNote), lane(lane), isHolding(false), isProcessed(false) {
-    shape.setFillColor(sf::Color::Yellow);
-    shape.setPosition({202.f + static_cast<float>(lane) * 100.f, 0.f});
+    sf::Color noteColor = (lane == 0 || lane == 3) ? sf::Color::White : sf::Color::Yellow;
+    float startX = 202.f + static_cast<float>(lane) * 100.f;
     if (isLongNote) {
-        // [FIX 4] 롱노트 길이를 NOTE_SPEED 기반으로 통일
-        shape.setSize(sf::Vector2f({98.f, static_cast<float>(endTime - startTime) * NOTE_SPEED}));
+        // 롱노트 설정
+        headshape.setFillColor(noteColor);
+        headshape.setSize({98.f, 15.f});
+        headshape.setPosition({startX, 0.f});
+
+        tailshape.setFillColor(noteColor);
+        tailshape.setSize({98.f, 15.f});
+        tailshape.setPosition({startX, 0.f});
+
+
+        shape.setFillColor(sf::Color(noteColor.r, noteColor.g, noteColor.b, 150)); // 몸통은 약간 투명하게
+        shape.setSize({80.f, static_cast<float>(endTime - startTime) * NOTE_SPEED});
+
+        shape.setPosition({startX + 9.f, 0.f});
     } else {
-        shape.setSize(sf::Vector2f({98.f, 10.f}));
+        shape.setFillColor(noteColor);
+        shape.setSize({98.f, 15.f});
+        shape.setPosition({startX, 0.f});
     }
 }
 
 void Note::update(long long currentTime, float speed, float hitLineY) {
-    auto timeGap = static_cast<float>(startTime - currentTime);
+    float timeGap = static_cast<float>(startTime - currentTime);
     float y = hitLineY - (timeGap * speed);
+
     if (isLongNote) {
-        shape.setPosition({shape.getPosition().x, y - shape.getSize().y});
+        headshape.setPosition({headshape.getPosition().x, y - headshape.getSize().y});
+        float endTimeGap = static_cast<float>(endTime - currentTime);
+        float tailY = hitLineY - (endTimeGap * speed);
+        tailshape.setPosition({tailshape.getPosition().x, tailY - tailshape.getSize().y});
+        shape.setPosition({shape.getPosition().x, tailY});
     } else {
-        shape.setPosition({shape.getPosition().x, y});
+        shape.setPosition({shape.getPosition().x, y - shape.getSize().y});
     }
 }
 
 JudgeResult Judgment::judge(long long key_time, long long map_time) {
     long long diff = std::abs(key_time - map_time);
     if (diff < 50) { score += 100; combo++; return JudgeResult::Perfect; }
-    else if (diff < 100) { score += 50; combo++; return JudgeResult::Good; }
-    // [FIX 1] Miss 판정 시 combo++ 제거 → BREAK() 호출로 교체
-    else if (diff < 150) { BREAK(); return JudgeResult::Miss; }
+    else if (diff < 100){score += 70; combo++; return JudgeResult::Great;}
+    else if (diff < 200) { score += 50; combo++; return JudgeResult::Good; }
+    else if (diff < 300) { BREAK(); return JudgeResult::Miss; }
     return JudgeResult::None;
 }
 

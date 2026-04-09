@@ -7,8 +7,9 @@
 
 #define JGLINE 500.f
 #define GET_LANE(x, keyCount) ((x) * (keyCount) / 512)
-#define NOTE_SPEED 0.5f
-
+#define NOTE_SPEED 0.6f
+#define RESOLUTION_X 1920
+#define RESOLUTION_Y 1080
 class Effect {
 private:
     sf::Sprite sprite;
@@ -32,12 +33,14 @@ public:
     bool isHolding;
     bool isProcessed;
     sf::RectangleShape shape;
+    sf::RectangleShape headshape;
+    sf::RectangleShape tailshape;
 
     Note(long long startTime = 0, long long endTime = 0, bool isLongNote = false, int lane = -1);
     void update(long long currentTime, float speed, float hitLineY);
 };
 
-enum class JudgeResult { Perfect, Good, None, Miss };
+enum class JudgeResult { Perfect,Great, Good, None, Miss };
 
 class Judgment {
     int score = 0;

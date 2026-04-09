@@ -15,7 +15,7 @@ int main() {
     deque<Note> notes = parseOsuMania("osu/173612"
                                       " xi - FREEDOM DiVE/xi - FREEDOM DiVE (razlteh) [4K Normal].osu");
 
-    if (!BASS_Init(-1, 44100, 0, 0, NULL)) {
+    if (!BASS_Init(-1, 44100, 0, 0, nullptr)) {
         std::cerr << "BASS 초기화 실패. 에러 코드: " << BASS_ErrorGetCode() << std::endl;
         return -1;
     }
@@ -32,9 +32,10 @@ int main() {
     }
 
     BASS_ChannelPlay(stream, FALSE);
+#pragma region 윈도우 선언, 키벡터 및 각종 고정 값들
 
     sf::RenderWindow window(sf::VideoMode({800, 600}), "Rhythm Cpp");
-    window.setFramerateLimit(60);
+    window.setFramerateLimit(144);
     window.setKeyRepeatEnabled(false);
 
     Judgment judgment;
@@ -62,10 +63,10 @@ int main() {
 
     sf::RectangleShape judgmentLine(sf::Vector2f({400.f, 5.f}));
     judgmentLine.setFillColor(sf::Color::Blue);
-    judgmentLine.setPosition(sf::Vector2f({200.f, JGLINE}));
+    judgmentLine.setPosition(sf::Vector2f({200.f, JGLINE-15.f}));
 
     sf::Font font;
-    if (!font.openFromFile("/System/Library/Fonts/Supplemental/Arial.ttf")) {
+    if (!font.openFromFile("font/Anton.ttf")) {
         std::cout << "폰트 로드 실패" << std::endl;
         return -1;
     }
@@ -98,21 +99,21 @@ int main() {
     }
 
     float scrollSpeed = NOTE_SPEED;
-    Note* holdingNotes[4] = { nullptr, nullptr, nullptr, nullptr };
+#pragma endregion
     while (window.isOpen()) {
 
         QWORD bytePosition = BASS_ChannelGetPosition(stream, BASS_POS_BYTE);
         double timeInSeconds = BASS_ChannelBytes2Seconds(stream, bytePosition);
         long long currentMusicTime = static_cast<long long>(timeInSeconds * 1000.0);
 
-
+#pragma region  키입력 및 판정 관련
         for (int i = 0; i < 4; ++i) {
             while (!laneNotes[i].empty()) {
                 Note& front = laneNotes[i].front();
 
                 long long deadline = (front.isLongNote && front.isHolding) ? front.endTime : front.startTime;
 
-                if (currentMusicTime - deadline > 150) {
+                if (currentMusicTime - deadline > 300) {
                     judgment.BREAK();
                     judgeText.setString("MISS");
                     judgeText.setFillColor(sf::Color::Magenta);
@@ -144,7 +145,10 @@ int main() {
                                     if (res == JudgeResult::Perfect) {
                                         judgeText.setString("PERFECT");
                                         judgeText.setFillColor(sf::Color::Cyan);
-                                    } else if (res == JudgeResult::Good) {
+                                    }else if (res == JudgeResult::Great) {
+                                        judgeText.setString("GREAT");
+                                        judgeText.setFillColor(sf::Color::Yellow);
+                                    }else if (res == JudgeResult::Good) {
                                         judgeText.setString("GOOD");
                                         judgeText.setFillColor(sf::Color::Green);
                                     } else if (res == JudgeResult::Miss) {
@@ -186,7 +190,10 @@ int main() {
                                     if (res == JudgeResult::Perfect) {
                                         judgeText.setString("PERFECT");
                                         judgeText.setFillColor(sf::Color::Cyan);
-                                    } else if (res == JudgeResult::Good) {
+                                    }else if (res == JudgeResult::Great) {
+                                        judgeText.setString("GREAT");
+                                        judgeText.setFillColor(sf::Color::Yellow);
+                                    }else if (res == JudgeResult::Good) {
                                         judgeText.setString("GOOD");
                                         judgeText.setFillColor(sf::Color::Green);
                                     } else if (res == JudgeResult::Miss) {
@@ -201,9 +208,11 @@ int main() {
                 }
             }
         }
+#pragma endregion
 
+        //노트 이펙트 사라지는 속도 설정dt
         for (auto it = effects.begin(); it != effects.end(); ) {
-            it->update(0.5f);
+            it->update(1);
             if (it->isFinished()) {
                 it = effects.erase(it);
             } else {
@@ -230,6 +239,8 @@ int main() {
                     long long endDiff = note.endTime - currentMusicTime;
                     if (timeDiff <= 6000 && endDiff > -150) {
                         window.draw(note.shape);
+                        window.draw(note.headshape);
+                        window.draw(note.tailshape);
                     }
                 } else {
                     if (timeDiff <= 1500 && timeDiff > -150) {
