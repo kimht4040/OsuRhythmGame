@@ -17,7 +17,7 @@ cmake-build-debug/
 cmake-build-release/
 out/
 build/
-
+osu
 # --- OS Specific ---
 .DS_Store
 Thumbs.db
